@@ -1,0 +1,6 @@
+@APIOxxito_HostAddress = http://localhost:5186
+
+GET {{APIOxxito_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

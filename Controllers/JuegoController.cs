@@ -1,0 +1,307 @@
+using Microsoft.AspNetCore.Mvc;
+using MySql.Data.MySqlClient;
+
+namespace APIOxxito.Controllers;
+
+[ApiController]
+[Route("[controller]")]
+public class JuegoController : ControllerBase
+{
+  public string ConnectionString = "Server=127.0.0.1;Port=3306;Database=mi_oxxito;Uid=root;password=root;";
+
+  [HttpPost("crear-juego/{liderIdCreador}")] // TODO: Validacion con IActionResult
+  public void PostCrearJuego([FromRoute] int liderIdCreador, [FromQuery] int puntosMeta)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand crearJuegoCmd = new MySqlCommand("INSERT INTO juegos (puntos_meta, tipo_juego) VALUES (@puntosMeta, 'versus')", connection);
+    crearJuegoCmd.Parameters.AddWithValue("@puntosMeta", puntosMeta);
+    crearJuegoCmd.ExecuteNonQuery();
+
+    int juegoId = Convert.ToInt32(crearJuegoCmd.LastInsertedId);
+
+    MySqlCommand crearJugadorCmd = new MySqlCommand("insert into jugadores (lider_id, juego_id) values (@liderId, @juegoId)", connection);
+    crearJugadorCmd.Parameters.AddWithValue("@liderId", liderIdCreador);
+    crearJugadorCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    crearJugadorCmd.ExecuteNonQuery();
+
+    int jugadorId = Convert.ToInt32(crearJugadorCmd.LastInsertedId);
+
+    MySqlCommand updateCreadorCmd = new MySqlCommand("update juegos set creador = @jugadorId where juego_id = @juegoId", connection);
+    updateCreadorCmd.Parameters.AddWithValue("@jugadorId", jugadorId);
+    updateCreadorCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    updateCreadorCmd.ExecuteNonQuery();
+
+    connection.Close();
+  }
+
+  [HttpGet("estatus-juegos/{liderId}")]
+  public EstatusPartidas GetEstatusJuegos([FromRoute] int liderId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand selectEstatusCmd = new MySqlCommand(@"
+    select 
+      j2.juego_id, 
+      j2.tipo_juego, 
+      j2.jugador_en_turno, 
+      j.jugador_id, 
+      j2.creador, 
+      j2.ganador
+    from lideres l 
+    join jugadores j on j.lider_id = l.lider_id
+    join juegos j2 on j.juego_id = j2.juego_id 
+    where l.lider_id = @liderId 
+    ", connection);
+    selectEstatusCmd.Parameters.AddWithValue("@liderId", liderId);
+
+    EstatusPartidas estatusPartidas = new EstatusPartidas();
+
+    using (var reader = selectEstatusCmd.ExecuteReader())
+    {
+      while (reader.Read())
+      {
+        int juegoId = Convert.ToInt32(reader["juego_id"]);
+
+        int? jugadorEnTurno = reader["jugador_en_turno"] == DBNull.Value
+        ? (int?)null
+        : Convert.ToInt32(reader["jugador_en_turno"]);
+
+        int jugadorId = Convert.ToInt32(reader["jugador_id"]);
+
+        int creador = Convert.ToInt32(reader["creador"]);
+
+        int? ganador = reader.IsDBNull(reader.GetOrdinal("ganador"))
+        ? (int?)null
+        : reader.GetInt32(reader.GetOrdinal("ganador"));
+
+        string? tipoJuego = reader["tipo_juego"].ToString();
+
+        if (tipoJuego != "versus") { continue; }
+
+        if (ganador != null)
+        {
+          estatusPartidas.Terminado.Add(juegoId);
+        }
+        else if (jugadorEnTurno == jugadorId)
+        {
+          estatusPartidas.Turno.Add(juegoId);
+        }
+        else if (jugadorEnTurno != null && jugadorEnTurno != jugadorId)
+        {
+          estatusPartidas.NoTurno.Add(juegoId);
+        }
+        else if (jugadorEnTurno == null && jugadorId == creador)
+        {
+          estatusPartidas.NoIniciadoMios.Add(juegoId);
+        }
+        else if (jugadorEnTurno == null && jugadorId != creador)
+        {
+          estatusPartidas.NoIniciadoOtros.Add(new JuegoCreador(juegoId, creador));
+        }
+      }
+    }
+    connection.Close();
+    return estatusPartidas;
+  }
+
+  [HttpPost("unirse-juego/{liderId}")]
+  public void PostUnirseJuego([FromRoute] int liderId, [FromQuery] int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand unirseJuegoCmd = new MySqlCommand(@"
+    INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)
+    ", connection);
+    unirseJuegoCmd.Parameters.AddWithValue("liderId", liderId);
+    unirseJuegoCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    unirseJuegoCmd.ExecuteNonQuery();
+    connection.Close();
+  }
+
+  [HttpPost("iniciar-juego/{juegoId}")]
+  public void PostIniciarJuego(int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand selectJugadoresCmd = new MySqlCommand(@"
+    select jugador_id from jugadores where juego_id = @juegoId;", connection);
+    selectJugadoresCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    List<int> jugadores = new List<int>();
+
+    using (var reader = selectJugadoresCmd.ExecuteReader())
+    {
+      while (reader.Read())
+      {
+        jugadores.Add(Convert.ToInt32(reader["jugador_id"]));
+      }
+    }
+
+    var random = new Random();
+    var ordenNumeros = Enumerable.Range(1, jugadores.Count)
+        .OrderBy(_ => random.Next())
+        .ToList();
+
+    var ordenJugadores = ordenNumeros
+        .Zip(jugadores, (turno, jugadorId) => new { turno, jugadorId })
+        .ToDictionary(x => x.turno, x => x.jugadorId);
+
+    foreach (KeyValuePair<int, int> jugador in ordenJugadores)
+    {
+      MySqlCommand updateOrderCmd = new MySqlCommand("UPDATE Jugadores SET turno = @turno WHERE jugador_id = @jugadorId", connection);
+      updateOrderCmd.Parameters.AddWithValue("@turno", jugador.Key);
+      updateOrderCmd.Parameters.AddWithValue("@jugadorId", jugador.Value);
+      updateOrderCmd.ExecuteNonQuery();
+    }
+
+    var primerJugador = ordenJugadores[ordenJugadores.Keys.Min()];
+    MySqlCommand updatePrimerJugador = new MySqlCommand(@"
+    UPDATE Juegos SET jugador_en_turno = @primerJugador WHERE juego_id = @juegoId;
+    ", connection);
+    updatePrimerJugador.Parameters.AddWithValue("@primerJugador", primerJugador);
+    updatePrimerJugador.Parameters.AddWithValue("@juegoId", juegoId);
+    updatePrimerJugador.ExecuteNonQuery();
+  }
+
+
+  [HttpPost("siguiente-turno/{juegoId}")]
+  public void PostSiguienteTurno(int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand jugadorEnTurnoCmd = new MySqlCommand("SELECT jugador_en_turno FROM juegos WHERE juego_id = @juegoId", connection);
+    jugadorEnTurnoCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    int jugadorTurno = -1;
+    using (var reader = jugadorEnTurnoCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        jugadorTurno = Convert.ToInt32(reader["jugador_en_turno"]);
+      }
+    }
+
+    MySqlCommand jugadoresTurnosCmd = new MySqlCommand("SELECT jugador_id FROM jugadores WHERE juego_id = @juegoId ORDER BY turno ASC", connection);
+    jugadoresTurnosCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    List<int> jugadores = new List<int>();
+    using (var reader = jugadoresTurnosCmd.ExecuteReader())
+    {
+      while (reader.Read())
+      {
+        jugadores.Add(Convert.ToInt32(reader["jugador_id"]));
+      }
+    }
+
+    int JugadorTurnoIdx = jugadores.FindIndex(j => j == jugadorTurno);
+
+    int sigJugadorId;
+    if (JugadorTurnoIdx == jugadores.Count - 1)
+    {
+      sigJugadorId = jugadores[0];
+    }
+    else
+    {
+      sigJugadorId = jugadores[JugadorTurnoIdx + 1];
+    }
+
+    MySqlCommand updateJugadorTurnoCmd = new MySqlCommand(@"UPDATE juegos SET jugador_en_turno = @siguienteJugadorId WHERE juego_id = @juegoId", connection);
+    updateJugadorTurnoCmd.Parameters.AddWithValue("siguienteJugadorId", sigJugadorId);
+    updateJugadorTurnoCmd.Parameters.AddWithValue("juegoId", juegoId);
+    updateJugadorTurnoCmd.ExecuteNonQuery();
+  }
+
+  [HttpPost("asignar-pregunta/{liderId}")]
+  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int categoriaPregunta, [FromQuery] int nivelPregunta)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand selectJugadorIdCmd = new MySqlCommand(@"
+    select jugador_id 
+    from lideres l 
+    join jugadores j on j.lider_id = l.lider_id 
+    join juegos j2 on j.juego_id = j2.juego_id
+    where j.juego_id = @juegoId and 
+    l.lider_id = @liderId and 
+    j2.jugador_en_turno = j.jugador_id
+    ", connection);
+    selectJugadorIdCmd.Parameters.AddWithValue("juegoId", juegoId);
+    selectJugadorIdCmd.Parameters.AddWithValue("liderId", liderId);
+
+    int jugadorId = -1;
+    using (var reader = selectJugadorIdCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        jugadorId = Convert.ToInt32(reader["jugador_id"]);
+      }
+    }
+
+    MySqlCommand selectPregRandCmd = new MySqlCommand(@"
+    select 
+      p.pregunta_id, 
+      p.pregunta, 
+      p.justificacion, 
+      p.opcion_correcta, 
+      p.opcion_2, 
+      p.opcion_3, 
+      p.opcion_4,
+      n.puntos,
+      n.tiempo
+    from preguntas p
+    join nivelespreguntas n on p.nivel_id = n.nivel_id
+    join categoriaspreguntas c on c.categoria_id = p.categoria_id
+    where p.pregunta_id not in ( 
+      select pregunta_id  
+      from pregunta_jugador pj
+      join jugadores j on pj.jugador_id = j.jugador_id
+      join lideres l on l.lider_id = j.lider_id
+      where l.lider_id = @liderId and j.juego_id = @juegoId
+    ) and 
+    c.categoria = @categoriaPregunta and 
+    n.nombre = @nivelPregunta
+    ORDER BY RAND()
+    LIMIT 1;
+    ", connection);
+    selectPregRandCmd.Parameters.AddWithValue("liderId", liderId);
+    selectPregRandCmd.Parameters.AddWithValue("juegoId", juegoId);
+    selectPregRandCmd.Parameters.AddWithValue("categoriaPregunta", categoriaPregunta);
+    selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
+
+    Pregunta pregunta;
+
+    using (var reader = selectPregRandCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        pregunta = new Pregunta
+        {
+          PreguntaId = Convert.ToInt32(reader["pregunta_id"]),
+          PreguntaTexto = reader.GetString("pregunta"),
+          Justificacion = reader.GetString("justificacion"),
+          OpcionCorrecta = reader.GetString("opcion_correcta"),
+          Opcion2 = reader.GetString("opcion_2"),
+          Opcion3 = reader.GetString("opcion_3"),
+          Opcion4 = reader.GetString("opcion_4"),
+          Puntos = Convert.ToInt32(reader["puntos"]),
+          Tiempo = Convert.ToInt32(reader["tiempo"])
+        };
+      }
+    }
+
+    // MySqlCommand insertPreguntaJugadorCmd = new MySqlCommand("insert into pregunta_jugador (pregunta_id, jugador_id) values (@preguntaId, @jugadorId)", connection);
+    // insertPreguntaJugadorCmd.Parameters.AddWithValue("preguntaId", pregunta.PreguntaId);
+    // insertPreguntaJugadorCmd.Parameters.AddWithValue("jugadorId", jugadorId);
+    // insertPreguntaJugadorCmd.ExecuteNonQuery();
+
+    return pregunta;
+  }
+}
