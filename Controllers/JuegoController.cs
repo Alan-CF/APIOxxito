@@ -219,7 +219,7 @@ public class JuegoController : ControllerBase
   }
 
   [HttpPost("asignar-pregunta/{liderId}")]
-  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int categoriaPregunta, [FromQuery] int nivelPregunta)
+  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta, [FromQuery] string nivelPregunta)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -276,31 +276,31 @@ public class JuegoController : ControllerBase
     selectPregRandCmd.Parameters.AddWithValue("categoriaPregunta", categoriaPregunta);
     selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
 
-    Pregunta pregunta;
+    Pregunta pregunta = new();
+    int preguntaId = 0;
 
     using (var reader = selectPregRandCmd.ExecuteReader())
     {
       if (reader.Read())
       {
-        pregunta = new Pregunta
-        {
-          PreguntaId = Convert.ToInt32(reader["pregunta_id"]),
-          PreguntaTexto = reader.GetString("pregunta"),
-          Justificacion = reader.GetString("justificacion"),
-          OpcionCorrecta = reader.GetString("opcion_correcta"),
-          Opcion2 = reader.GetString("opcion_2"),
-          Opcion3 = reader.GetString("opcion_3"),
-          Opcion4 = reader.GetString("opcion_4"),
-          Puntos = Convert.ToInt32(reader["puntos"]),
-          Tiempo = Convert.ToInt32(reader["tiempo"])
-        };
+
+        preguntaId = Convert.ToInt32(reader["pregunta_id"]);
+        pregunta.PreguntaTexto = reader.GetString("pregunta");
+        pregunta.Justificacion = reader.GetString("justificacion");
+        pregunta.OpcionCorrecta = reader.GetString("opcion_correcta");
+        pregunta.Opcion2 = reader.GetString("opcion_2");
+        pregunta.Opcion3 = reader.GetString("opcion_3");
+        pregunta.Opcion4 = reader.GetString("opcion_4");
+        pregunta.Puntos = Convert.ToInt32(reader["puntos"]);
+        pregunta.Tiempo = Convert.ToInt32(reader["tiempo"]);
+
       }
     }
 
-    // MySqlCommand insertPreguntaJugadorCmd = new MySqlCommand("insert into pregunta_jugador (pregunta_id, jugador_id) values (@preguntaId, @jugadorId)", connection);
-    // insertPreguntaJugadorCmd.Parameters.AddWithValue("preguntaId", pregunta.PreguntaId);
-    // insertPreguntaJugadorCmd.Parameters.AddWithValue("jugadorId", jugadorId);
-    // insertPreguntaJugadorCmd.ExecuteNonQuery();
+    MySqlCommand insertPreguntaJugadorCmd = new("insert into pregunta_jugador (pregunta_id, jugador_id) values (@preguntaId, @jugadorId)", connection);
+    insertPreguntaJugadorCmd.Parameters.AddWithValue("preguntaId", preguntaId);
+    insertPreguntaJugadorCmd.Parameters.AddWithValue("jugadorId", jugadorId);
+    insertPreguntaJugadorCmd.ExecuteNonQuery();
 
     return pregunta;
   }

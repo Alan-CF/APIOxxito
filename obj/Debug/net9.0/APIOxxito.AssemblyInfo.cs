@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("APIOxxito")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+13acccc0b7f12f282d630a02ebd2af2eef3254dc")]
 [assembly: System.Reflection.AssemblyProductAttribute("APIOxxito")]
 [assembly: System.Reflection.AssemblyTitleAttribute("APIOxxito")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

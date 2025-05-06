@@ -62,3 +62,4 @@ c:\Users\xxxsl\Desktop\TEC\Universidad\Sem4\P2\Construccion de software\Web\Entr
 c:\Users\xxxsl\Desktop\TEC\Universidad\Sem4\P2\Construccion de software\Web\Entrega 1\APIOxxito\bin\Debug\net9.0\runtimes\win-x64\native\krb5_64.dll
 c:\Users\xxxsl\Desktop\TEC\Universidad\Sem4\P2\Construccion de software\Web\Entrega 1\APIOxxito\bin\Debug\net9.0\runtimes\win-x64\native\krbcc64.dll
 c:\Users\xxxsl\Desktop\TEC\Universidad\Sem4\P2\Construccion de software\Web\Entrega 1\APIOxxito\bin\Debug\net9.0\runtimes\win\lib\net8.0\System.Windows.Extensions.dll
+c:\Users\xxxsl\Desktop\TEC\Universidad\Sem4\P2\Construccion de software\Web\Entrega 1\APIOxxito\obj\Debug\net9.0\APIOxxito.sourcelink.json
