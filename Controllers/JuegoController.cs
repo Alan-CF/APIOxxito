@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MySql.Data.MySqlClient;
+using Mysqlx.Crud;
 
 namespace APIOxxito.Controllers;
 
@@ -277,14 +278,13 @@ public class JuegoController : ControllerBase
     selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
 
     Pregunta pregunta = new();
-    int preguntaId = 0;
 
     using (var reader = selectPregRandCmd.ExecuteReader())
     {
       if (reader.Read())
       {
 
-        preguntaId = Convert.ToInt32(reader["pregunta_id"]);
+        pregunta.PreguntaId = Convert.ToInt32(reader["pregunta_id"]);
         pregunta.PreguntaTexto = reader.GetString("pregunta");
         pregunta.Justificacion = reader.GetString("justificacion");
         pregunta.OpcionCorrecta = reader.GetString("opcion_correcta");
@@ -298,10 +298,92 @@ public class JuegoController : ControllerBase
     }
 
     MySqlCommand insertPreguntaJugadorCmd = new("insert into pregunta_jugador (pregunta_id, jugador_id) values (@preguntaId, @jugadorId)", connection);
-    insertPreguntaJugadorCmd.Parameters.AddWithValue("preguntaId", preguntaId);
+    insertPreguntaJugadorCmd.Parameters.AddWithValue("preguntaId", pregunta.PreguntaId);
     insertPreguntaJugadorCmd.Parameters.AddWithValue("jugadorId", jugadorId);
     insertPreguntaJugadorCmd.ExecuteNonQuery();
 
     return pregunta;
+  }
+
+
+  // Cambiar a 2 endpoints respuesta correcta e incorrecta.
+  [HttpPost("respuesta-correcta/{liderId}")]
+  public int PreguntaCorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId, [FromQuery] float aumentoMultiplicador)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand selectJugadorCmd = new(@"
+    select j.jugador_id from lideres l
+    join jugadores j on j.lider_id = l.lider_id
+    join juegos j2 on j2.juego_id = j.juego_id
+    where l.lider_id = @liderId and
+    j2.juego_id = @juegoId
+    ", connection);
+    selectJugadorCmd.Parameters.AddWithValue("liderId", liderId);
+    selectJugadorCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    int jugador = -1;
+    using (var reader = selectJugadorCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        jugador = Convert.ToInt32(reader["jugador_id"]);
+      }
+    }
+
+    MySqlCommand updateStatusPreguntaCmd = new(@"
+    update pregunta_jugador 
+    set correcta = true 
+    where jugador_id = @jugadorId and
+    pregunta_id = @preguntaId
+    ", connection);
+    updateStatusPreguntaCmd.Parameters.AddWithValue("jugadorId", jugador);
+    updateStatusPreguntaCmd.Parameters.AddWithValue("preguntaId", preguntaId);
+    updateStatusPreguntaCmd.ExecuteNonQuery();
+
+    MySqlCommand selectPuntosPregunta = new(@"
+    select n.puntos from preguntas p 
+    join nivelespreguntas n on p.nivel_id = n.nivel_id
+    where p.pregunta_id = @preguntaId;
+    ", connection);
+    selectPuntosPregunta.Parameters.AddWithValue("preguntaId", preguntaId);
+
+    int puntos = 0;
+    using (var reader = selectPuntosPregunta.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        puntos = Convert.ToInt32(reader["puntos"]);
+      }
+    }
+
+    MySqlCommand updateJugadorCmd = new(@"
+    update jugadores set 
+      puntos_actuales = puntos_actuales + @puntos,
+      multiplicador = multiplicador + @aumentoMultiplicador
+    where jugador_id = 1;
+    ", connection);
+    updateJugadorCmd.Parameters.AddWithValue("puntos", puntos);
+    updateJugadorCmd.Parameters.AddWithValue("aumentoMultiplicador", aumentoMultiplicador);
+    updateStatusPreguntaCmd.ExecuteNonQuery();
+
+    MySqlCommand ganadoresCmd = new(@"
+    select j.jugador_id from jugadores j
+    join juegos j2 on j.juego_id = j2.juego_id
+    where j2.juego_id = @juegoId and j.puntos_actuales >= 
+    (select puntos_meta from juegos where juego_id = @juegoId)
+    ", connection);
+    ganadoresCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    int ganador = -1;
+    using (var reader = ganadoresCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        ganador = Convert.ToInt32(reader["jugador_id"]);
+      }
+    }
+    return ganador;
   }
 }

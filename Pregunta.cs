@@ -1,6 +1,7 @@
 namespace APIOxxito;
 public class Pregunta
 {
+  public int? PreguntaId { get; set; }
   public string? PreguntaTexto { get; set; }
   public string? Justificacion { get; set; }
   public string? OpcionCorrecta { get; set; }
