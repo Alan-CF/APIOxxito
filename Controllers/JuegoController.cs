@@ -305,10 +305,7 @@ public class JuegoController : ControllerBase
     return pregunta;
   }
 
-
-  // Cambiar a 2 endpoints respuesta correcta e incorrecta.
-  [HttpPost("respuesta-correcta/{liderId}")]
-  public int PreguntaCorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId, [FromQuery] float aumentoMultiplicador)
+  private int selectJugador(int liderId, int juegoId)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -332,15 +329,37 @@ public class JuegoController : ControllerBase
       }
     }
 
+    return jugador;
+  }
+
+  private void updateEstatusPregunta(int jugador, int preguntaId, bool correcta)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
     MySqlCommand updateStatusPreguntaCmd = new(@"
     update pregunta_jugador 
-    set correcta = true 
+    set correcta = @correcta 
     where jugador_id = @jugadorId and
     pregunta_id = @preguntaId
     ", connection);
     updateStatusPreguntaCmd.Parameters.AddWithValue("jugadorId", jugador);
     updateStatusPreguntaCmd.Parameters.AddWithValue("preguntaId", preguntaId);
+    updateStatusPreguntaCmd.Parameters.AddWithValue("correcta", correcta);
     updateStatusPreguntaCmd.ExecuteNonQuery();
+  }
+
+  // 1. Asigna la respuesta como correcta
+  // 2. Añade los puntos y el aumento de multiplicador
+  [HttpPost("respuesta-correcta/{liderId}")]
+  public IActionResult PreguntaCorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId, [FromQuery] float aumentoMultiplicador)
+  {
+    int jugador = selectJugador(liderId, juegoId);
+
+    updateEstatusPregunta(jugador, preguntaId, true);
+
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
 
     MySqlCommand selectPuntosPregunta = new(@"
     select n.puntos from preguntas p 
@@ -366,7 +385,27 @@ public class JuegoController : ControllerBase
     ", connection);
     updateJugadorCmd.Parameters.AddWithValue("puntos", puntos);
     updateJugadorCmd.Parameters.AddWithValue("aumentoMultiplicador", aumentoMultiplicador);
-    updateStatusPreguntaCmd.ExecuteNonQuery();
+    updateJugadorCmd.ExecuteNonQuery();
+
+
+    return Ok();
+  }
+
+  [HttpPost("pregunta-incorrecta/{liderId}")]
+  public IActionResult PreguntaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
+  {
+    int jugador = selectJugador(liderId, juegoId);
+
+    updateEstatusPregunta(jugador, preguntaId, false);
+
+    return Ok();
+  }
+
+
+  private int _EstatusJuego(int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
 
     MySqlCommand ganadoresCmd = new(@"
     select j.jugador_id from jugadores j
@@ -384,6 +423,13 @@ public class JuegoController : ControllerBase
         ganador = Convert.ToInt32(reader["jugador_id"]);
       }
     }
+
     return ganador;
+  }
+
+  [HttpGet("estatus-juego/{juegoId}")]
+  public IActionResult EstatusJuego(int juegoId)
+  {
+    return Ok(new { ganador = _EstatusJuego(juegoId) });
   }
 }
