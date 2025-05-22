@@ -271,32 +271,32 @@ public class PracticaController : ControllerBase
     return TerminarJuego(jugador, juegoId);
   }
 
-  // [HttpGet("puntos-jugador/lider/{liderId}/juego/{juegoId}")]
-  // public IActionResult SelectPuntosJugador(int liderId, int juegoId)
-  // {
-  //   MySqlConnection connection = new MySqlConnection(ConnectionString);
-  //   connection.Open();
+  [HttpGet("puntos-jugador/lider/{liderId}/juego/{juegoId}")]
+  public IActionResult SelectPuntosJugador(int liderId, int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
 
-  //   MySqlCommand selectJugadorCmd = new(@"
-  //   select j.puntos_actuales from lideres l
-  //   join jugadores j on j.lider_id = l.lider_id
-  //   join juegos j2 on j2.juego_id = j.juego_id
-  //   where l.lider_id = @liderId and
-  //   j2.juego_id = @juegoId
-  //   ", connection);
-  //   selectJugadorCmd.Parameters.AddWithValue("liderId", liderId);
-  //   selectJugadorCmd.Parameters.AddWithValue("juegoId", juegoId);
+    MySqlCommand selectJugadorCmd = new(@"
+    select j.puntos_actuales from lideres l
+    join jugadores j on j.lider_id = l.lider_id
+    join juegos j2 on j2.juego_id = j.juego_id
+    where l.lider_id = @liderId and
+    j2.juego_id = @juegoId
+    ", connection);
+    selectJugadorCmd.Parameters.AddWithValue("liderId", liderId);
+    selectJugadorCmd.Parameters.AddWithValue("juegoId", juegoId);
 
-  //   int puntos = 0;
-  //   using (var reader = selectJugadorCmd.ExecuteReader())
-  //   {
-  //     if (reader.Read())
-  //     {
-  //       puntos = Convert.ToInt32(reader["puntos_actuales"]);
-  //     }
-  //   }
+    int puntos = 0;
+    using (var reader = selectJugadorCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        puntos = Convert.ToInt32(reader["puntos_actuales"]);
+      }
+    }
 
-  //   return Ok(new { Puntos = puntos });
-  // }
+    return Ok(new { Puntos = puntos });
+  }
 }
 
