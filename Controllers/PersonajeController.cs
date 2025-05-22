@@ -8,8 +8,7 @@ namespace APIOxxito.Controllers;
 [Route("[controller]")]
 public class PersonajeController : ControllerBase
 {
-  public string ConnectionString = "Server=127.0.0.1;Port=3306;Database=mi_oxxito;Uid=root;password=root;";
-
+  public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
   [HttpGet("monedas/{liderId}")]
   public IActionResult GetMonedas(int liderId)
   {
@@ -24,14 +23,14 @@ public class PersonajeController : ControllerBase
 
     getMonedasCmd.Parameters.AddWithValue("liderId", liderId);
 
-    int puntos = 0;
+    int monedas = 0;
     using (var reader = getMonedasCmd.ExecuteReader())
     {
       if (reader.Read())
       {
-        puntos = Convert.ToInt32(reader["monedas"]);
+        monedas = Convert.ToInt32(reader["monedas"]);
       }
     }
-    return Ok(new { Puntos = puntos });
+    return Ok(new { Monedas = monedas });
   }
 }

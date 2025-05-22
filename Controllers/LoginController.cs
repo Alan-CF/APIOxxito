@@ -8,8 +8,7 @@ namespace APIOxxito.Controllers;
 [Route("[controller]")]
 public class LoginController : ControllerBase
 {
-  public string ConnectionString = "Server=127.0.0.1;Port=3306;Database=mi_oxxito;Uid=root;password=root;";
-
+  public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
   [HttpGet()]
   public IActionResult Login([FromQuery] string usuario, [FromQuery] string contrasena)
   {
