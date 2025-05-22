@@ -56,7 +56,7 @@ public class PracticaController : ControllerBase
   }
 
   [HttpPost("asignar-pregunta/{liderId}")]
-  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta, [FromQuery] string nivelPregunta)
+  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -103,15 +103,13 @@ public class PracticaController : ControllerBase
       join lideres l on l.lider_id = j.lider_id
       where l.lider_id = @liderId and j.juego_id = @juegoId
     ) and 
-    c.categoria = @categoriaPregunta and 
-    n.nombre = @nivelPregunta
+    c.categoria = @categoriaPregunta
     ORDER BY RAND()
     LIMIT 1;
     ", connection);
     selectPregRandCmd.Parameters.AddWithValue("liderId", liderId);
     selectPregRandCmd.Parameters.AddWithValue("juegoId", juegoId);
     selectPregRandCmd.Parameters.AddWithValue("categoriaPregunta", categoriaPregunta);
-    selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
 
     Pregunta pregunta = new();
 
