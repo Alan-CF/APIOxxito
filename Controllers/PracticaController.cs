@@ -240,11 +240,27 @@ public class PracticaController : ControllerBase
 
     terminarJuegoCmd.ExecuteNonQuery();
 
+    MySqlCommand putMonedasCmd = new(@"
+    UPDATE personajes p
+    join lideres l on l.lider_id = p.lider_id
+    join jugadores j3 on j3.lider_id = l.lider_id
+    SET monedas = monedas + (
+        SELECT j.puntos_actuales
+        FROM jugadores j
+        JOIN juegos j2 ON j2.juego_id = j.juego_id
+        WHERE j.jugador_id = @jugadorId
+    ) / 10
+    WHERE j3.jugador_id = @jugadorId;
+    ", connection);
+
+    putMonedasCmd.Parameters.AddWithValue("jugadorId", jugador);
+    putMonedasCmd.ExecuteNonQuery();
+
     return Ok(new { StatusMsg = "Juego Terminado" });
   }
 
 
-  [HttpPost("pregunta-incorrecta/{liderId}")]
+  [HttpPost("respuesta-incorrecta/{liderId}")]
   public IActionResult PreguntaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
   {
     int jugador = selectJugador(liderId, juegoId);
@@ -254,4 +270,33 @@ public class PracticaController : ControllerBase
 
     return TerminarJuego(jugador, juegoId);
   }
+
+  // [HttpGet("puntos-jugador/lider/{liderId}/juego/{juegoId}")]
+  // public IActionResult SelectPuntosJugador(int liderId, int juegoId)
+  // {
+  //   MySqlConnection connection = new MySqlConnection(ConnectionString);
+  //   connection.Open();
+
+  //   MySqlCommand selectJugadorCmd = new(@"
+  //   select j.puntos_actuales from lideres l
+  //   join jugadores j on j.lider_id = l.lider_id
+  //   join juegos j2 on j2.juego_id = j.juego_id
+  //   where l.lider_id = @liderId and
+  //   j2.juego_id = @juegoId
+  //   ", connection);
+  //   selectJugadorCmd.Parameters.AddWithValue("liderId", liderId);
+  //   selectJugadorCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+  //   int puntos = 0;
+  //   using (var reader = selectJugadorCmd.ExecuteReader())
+  //   {
+  //     if (reader.Read())
+  //     {
+  //       puntos = Convert.ToInt32(reader["puntos_actuales"]);
+  //     }
+  //   }
+
+  //   return Ok(new { Puntos = puntos });
+  // }
 }
+
