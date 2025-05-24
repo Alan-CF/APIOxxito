@@ -8,6 +8,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Forzar redirección a HTTPS
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.HttpsPort = 7055; // Puerto definido en launchSettings https
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
