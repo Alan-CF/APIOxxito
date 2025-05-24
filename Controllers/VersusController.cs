@@ -11,7 +11,7 @@ public class VersusController : ControllerBase
   public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
 
   [HttpPost("crear-juego/{liderIdCreador}")] // TODO: Validacion con IActionResult
-  public void PostCrearJuego([FromRoute] int liderIdCreador, [FromQuery] int puntosMeta)
+  public IActionResult PostCrearJuego([FromRoute] int liderIdCreador, [FromQuery] int puntosMeta)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -34,7 +34,7 @@ public class VersusController : ControllerBase
     updateCreadorCmd.Parameters.AddWithValue("@juegoId", juegoId);
     updateCreadorCmd.ExecuteNonQuery();
 
-    connection.Close();
+    return Ok(new { JuegoId = juegoId });
   }
 
   [HttpGet("estatus-juegos/{liderId}")]
@@ -381,8 +381,8 @@ public class VersusController : ControllerBase
     update jugadores set 
       puntos_actuales = puntos_actuales + @puntos,
       multiplicador = multiplicador + @aumentoMultiplicador
-    where jugador_id = 1;
-    ", connection);
+    where jugador_id = @jugadorId;
+    ", connection); // Actualizar, lider id
     updateJugadorCmd.Parameters.AddWithValue("puntos", puntos);
     updateJugadorCmd.Parameters.AddWithValue("aumentoMultiplicador", aumentoMultiplicador);
     updateJugadorCmd.ExecuteNonQuery();
