@@ -55,6 +55,7 @@ packages/
 *.pdb
 *.dbmdl
 *.bak
+*.pem
 
 # Visual Studio working folder
 .vs/
