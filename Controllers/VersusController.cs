@@ -109,19 +109,42 @@ public class VersusController : ControllerBase
   }
 
   [HttpPost("unirse-juego/{liderId}")]
-  public void PostUnirseJuego([FromRoute] int liderId, [FromQuery] int juegoId)
+  public IActionResult PostUnirseJuego([FromRoute] int liderId, [FromQuery] int juegoId)
   {
-    MySqlConnection connection = new MySqlConnection(ConnectionString);
-    connection.Open();
+    try
+    {
+      using var connection = new MySqlConnection(ConnectionString);
+      connection.Open();
 
-    MySqlCommand unirseJuegoCmd = new MySqlCommand(@"
-    INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)
-    ", connection);
-    unirseJuegoCmd.Parameters.AddWithValue("liderId", liderId);
-    unirseJuegoCmd.Parameters.AddWithValue("juegoId", juegoId);
+      // Verificar existencia y duplicados
+      var checkCmd = new MySqlCommand(@"
+        SELECT 
+          (SELECT COUNT(*) FROM lideres WHERE lider_id = @liderId) as liderExists,
+          (SELECT COUNT(*) FROM juegos WHERE juego_id = @juegoId) as juegoExists,
+          (SELECT COUNT(*) FROM jugadores WHERE lider_id = @liderId AND juego_id = @juegoId) as jugadorExists", connection);
+      checkCmd.Parameters.AddWithValue("@liderId", liderId);
+      checkCmd.Parameters.AddWithValue("@juegoId", juegoId);
 
-    unirseJuegoCmd.ExecuteNonQuery();
-    connection.Close();
+      using var reader = checkCmd.ExecuteReader();
+      if (reader.Read())
+      {
+        if (reader.GetInt32("liderExists") == 0) return NotFound("El líder no existe");
+        if (reader.GetInt32("juegoExists") == 0) return NotFound("El juego no existe");
+        if (reader.GetInt32("jugadorExists") > 0) return BadRequest("Ya estas unido a este juego");
+      }
+
+      // Unir jugador al juego
+      var unirseCmd = new MySqlCommand("INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)", connection);
+      unirseCmd.Parameters.AddWithValue("@liderId", liderId);
+      unirseCmd.Parameters.AddWithValue("@juegoId", juegoId);
+      unirseCmd.ExecuteNonQuery();
+
+      return Ok("Jugador unido exitosamente al juego");
+    }
+    catch (Exception ex)
+    {
+      return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+    }
   }
 
   [HttpPost("iniciar-juego/{juegoId}")]
@@ -155,7 +178,7 @@ public class VersusController : ControllerBase
 
     foreach (KeyValuePair<int, int> jugador in ordenJugadores)
     {
-      MySqlCommand updateOrderCmd = new MySqlCommand("UPDATE Jugadores SET turno = @turno WHERE jugador_id = @jugadorId", connection);
+      MySqlCommand updateOrderCmd = new MySqlCommand("UPDATE jugadores SET turno = @turno WHERE jugador_id = @jugadorId", connection);
       updateOrderCmd.Parameters.AddWithValue("@turno", jugador.Key);
       updateOrderCmd.Parameters.AddWithValue("@jugadorId", jugador.Value);
       updateOrderCmd.ExecuteNonQuery();
@@ -163,7 +186,7 @@ public class VersusController : ControllerBase
 
     var primerJugador = ordenJugadores[ordenJugadores.Keys.Min()];
     MySqlCommand updatePrimerJugador = new MySqlCommand(@"
-    UPDATE Juegos SET jugador_en_turno = @primerJugador WHERE juego_id = @juegoId;
+    UPDATE juegos SET jugador_en_turno = @primerJugador WHERE juego_id = @juegoId;
     ", connection);
     updatePrimerJugador.Parameters.AddWithValue("@primerJugador", primerJugador);
     updatePrimerJugador.Parameters.AddWithValue("@juegoId", juegoId);
@@ -267,8 +290,7 @@ public class VersusController : ControllerBase
       join lideres l on l.lider_id = j.lider_id
       where l.lider_id = @liderId and j.juego_id = @juegoId
     ) and 
-    c.categoria = @categoriaPregunta and 
-    n.nombre = @nivelPregunta
+    c.categoria = @categoriaPregunta
     ORDER BY RAND()
     LIMIT 1;
     ", connection);
