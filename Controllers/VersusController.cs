@@ -111,40 +111,43 @@ public class VersusController : ControllerBase
   [HttpPost("unirse-juego/{liderId}")]
   public IActionResult PostUnirseJuego([FromRoute] int liderId, [FromQuery] int juegoId)
   {
-    try
-    {
-      using var connection = new MySqlConnection(ConnectionString);
-      connection.Open();
+    // try
+    // {
+    using var connection = new MySqlConnection(ConnectionString);
+    connection.Open();
 
-      // Verificar existencia y duplicados
-      var checkCmd = new MySqlCommand(@"
+    // Verificar existencia y duplicados
+    var checkCmd = new MySqlCommand(@"
         SELECT 
           (SELECT COUNT(*) FROM lideres WHERE lider_id = @liderId) as liderExists,
           (SELECT COUNT(*) FROM juegos WHERE juego_id = @juegoId) as juegoExists,
           (SELECT COUNT(*) FROM jugadores WHERE lider_id = @liderId AND juego_id = @juegoId) as jugadorExists", connection);
-      checkCmd.Parameters.AddWithValue("@liderId", liderId);
-      checkCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    checkCmd.Parameters.AddWithValue("@liderId", liderId);
+    checkCmd.Parameters.AddWithValue("@juegoId", juegoId);
 
-      using var reader = checkCmd.ExecuteReader();
+    using (var reader = checkCmd.ExecuteReader())
+    {
       if (reader.Read())
       {
         if (reader.GetInt32("liderExists") == 0) return NotFound("El líder no existe");
         if (reader.GetInt32("juegoExists") == 0) return NotFound("El juego no existe");
         if (reader.GetInt32("jugadorExists") > 0) return BadRequest("Ya estas unido a este juego");
       }
-
-      // Unir jugador al juego
-      var unirseCmd = new MySqlCommand("INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)", connection);
-      unirseCmd.Parameters.AddWithValue("@liderId", liderId);
-      unirseCmd.Parameters.AddWithValue("@juegoId", juegoId);
-      unirseCmd.ExecuteNonQuery();
-
-      return Ok("Jugador unido exitosamente al juego");
     }
-    catch (Exception ex)
-    {
-      return StatusCode(500, $"Error interno del servidor: {ex.Message}");
-    }
+
+
+    // Unir jugador al juego
+    var unirseCmd = new MySqlCommand("INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)", connection);
+    unirseCmd.Parameters.AddWithValue("@liderId", liderId);
+    unirseCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    unirseCmd.ExecuteNonQuery();
+
+    return Ok("Jugador unido exitosamente al juego");
+    // }
+    // catch (Exception ex)
+    // {
+    //   return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+    // }
   }
 
   [HttpPost("iniciar-juego/{juegoId}")]
@@ -243,7 +246,7 @@ public class VersusController : ControllerBase
   }
 
   [HttpPost("asignar-pregunta/{liderId}")]
-  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta, [FromQuery] string nivelPregunta)
+  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -297,7 +300,6 @@ public class VersusController : ControllerBase
     selectPregRandCmd.Parameters.AddWithValue("liderId", liderId);
     selectPregRandCmd.Parameters.AddWithValue("juegoId", juegoId);
     selectPregRandCmd.Parameters.AddWithValue("categoriaPregunta", categoriaPregunta);
-    selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
 
     Pregunta pregunta = new();
 
@@ -404,8 +406,9 @@ public class VersusController : ControllerBase
       puntos_actuales = puntos_actuales + @puntos,
       multiplicador = multiplicador + @aumentoMultiplicador
     where jugador_id = @jugadorId;
-    ", connection); // Actualizar, lider id
+    ", connection);
     updateJugadorCmd.Parameters.AddWithValue("puntos", puntos);
+    updateJugadorCmd.Parameters.AddWithValue("jugadorId", selectJugador(liderId, juegoId));
     updateJugadorCmd.Parameters.AddWithValue("aumentoMultiplicador", aumentoMultiplicador);
     updateJugadorCmd.ExecuteNonQuery();
 
@@ -413,8 +416,8 @@ public class VersusController : ControllerBase
     return Ok();
   }
 
-  [HttpPost("pregunta-incorrecta/{liderId}")]
-  public IActionResult PreguntaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
+  [HttpPost("respuesta-incorrecta/{liderId}")]
+  public IActionResult RespuestaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
   {
     int jugador = selectJugador(liderId, juegoId);
 
