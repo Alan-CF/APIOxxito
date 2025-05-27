@@ -453,11 +453,27 @@ public class VersusController : ControllerBase
     return ganador;
   }
 
-  [HttpGet("verificar-ganador/{juegoId}")]
+  [HttpPost("verificar-ganador/{juegoId}")]
   public IActionResult GetGanador(int juegoId)
   {
-    return Ok(new { ganador = _EstatusJuego(juegoId) });
+    int ganador = _EstatusJuego(juegoId);
+
+    if (ganador != -1)
+    {
+      MySqlConnection connection = new MySqlConnection(ConnectionString);
+      connection.Open();
+
+      MySqlCommand SetGanador = new(@"
+      update juegos j set ganador = @ganador where juego_id = @juegoId
+      ", connection);
+      SetGanador.Parameters.AddWithValue("ganador", ganador);
+      SetGanador.Parameters.AddWithValue("juegoId", juegoId);
+      SetGanador.ExecuteNonQuery();
+    }
+    return Ok(new { Ganador = ganador });
   }
+
+
 
   [HttpGet("estatus-juego/{juegoId}")]
   public IActionResult GetEstatus(int juegoId)
