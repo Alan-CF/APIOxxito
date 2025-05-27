@@ -8,7 +8,8 @@ namespace APIOxxito.Controllers;
 [Route("[controller]")]
 public class VersusController : ControllerBase
 {
-  public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
+  // public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
+  public string ConnectionString = "Server=127.0.0.1;Port=3306;Database=mi_oxxito;Uid=root;password=root;";
 
   [HttpPost("crear-juego/{liderIdCreador}")] // TODO: Validacion con IActionResult
   public IActionResult PostCrearJuego([FromRoute] int liderIdCreador, [FromQuery] int puntosMeta)
@@ -452,9 +453,37 @@ public class VersusController : ControllerBase
     return ganador;
   }
 
-  [HttpGet("estatus-juego/{juegoId}")]
-  public IActionResult EstatusJuego(int juegoId)
+  [HttpGet("ganador/{juegoId}")]
+  public IActionResult GetGanador(int juegoId)
   {
     return Ok(new { ganador = _EstatusJuego(juegoId) });
+  }
+
+  [HttpGet("estatus-juego/{juegoId}")]
+  public IActionResult GetEstatus(int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand jugadoresCmd = new(@"
+    select p.nombre_personaje, j.puntos_actuales from jugadores j 
+    join lideres l on j.lider_id = l.lider_id
+    join personajes p on p.lider_id = j.lider_id
+    where j.juego_id = @juegoId
+    ", connection);
+    jugadoresCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    List<PuntosJugador> jugadores = [];
+    using (var reader = jugadoresCmd.ExecuteReader())
+    {
+      while (reader.Read())
+      {
+        PuntosJugador jugador = new();
+        jugador.jugador = reader["nombre_personaje"].ToString();
+        jugador.puntos = Convert.ToInt32(reader["puntos_actuales"]);
+        jugadores.Add(jugador);
+      }
+    }
+    return Ok(jugadores);
   }
 }
