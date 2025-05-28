@@ -33,4 +33,22 @@ public class PersonajeController : ControllerBase
     }
     return Ok(new { Monedas = monedas });
   }
+  [HttpPut]
+  public void SumarMonedas(int liderId,int NuevaMoneda)
+  {
+    using var connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand updatemonedas = new(@"
+    update personajes p
+    set monedas = monedas+ @NuevaMoneda
+    where lider_id= @liderId;
+    ", connection);
+
+    updatemonedas.Parameters.AddWithValue("liderId", liderId);
+    updatemonedas.Parameters.AddWithValue("NuevaMoneda", NuevaMoneda);
+    updatemonedas.ExecuteNonQuery();
+    
+  }
+
 }
