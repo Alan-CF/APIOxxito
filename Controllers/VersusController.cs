@@ -9,6 +9,7 @@ namespace APIOxxito.Controllers;
 public class VersusController : ControllerBase
 {
   public string ConnectionString = "Server=mysql-373b7fe1-danielara071-6268.g.aivencloud.com;Port=24232;Database=mi_oxxito;Uid=avnadmin;Pwd=AVNS_ZJOL4SKtMmgE-f7N-_W;SslMode=none;";
+  // public string ConnectionString = "Server=127.0.0.1;Port=3306;Database=mi_oxxito;Uid=root;password=root;";
 
   [HttpPost("crear-juego/{liderIdCreador}")] // TODO: Validacion con IActionResult
   public IActionResult PostCrearJuego([FromRoute] int liderIdCreador, [FromQuery] int puntosMeta)
@@ -82,7 +83,7 @@ public class VersusController : ControllerBase
 
         if (tipoJuego != "versus") { continue; }
 
-        if (ganador != null)
+        if (ganador.HasValue)
         {
           estatusPartidas.Terminado.Add(juegoId);
         }
@@ -111,40 +112,43 @@ public class VersusController : ControllerBase
   [HttpPost("unirse-juego/{liderId}")]
   public IActionResult PostUnirseJuego([FromRoute] int liderId, [FromQuery] int juegoId)
   {
-    try
-    {
-      using var connection = new MySqlConnection(ConnectionString);
-      connection.Open();
+    // try
+    // {
+    using var connection = new MySqlConnection(ConnectionString);
+    connection.Open();
 
-      // Verificar existencia y duplicados
-      var checkCmd = new MySqlCommand(@"
+    // Verificar existencia y duplicados
+    var checkCmd = new MySqlCommand(@"
         SELECT 
           (SELECT COUNT(*) FROM lideres WHERE lider_id = @liderId) as liderExists,
           (SELECT COUNT(*) FROM juegos WHERE juego_id = @juegoId) as juegoExists,
           (SELECT COUNT(*) FROM jugadores WHERE lider_id = @liderId AND juego_id = @juegoId) as jugadorExists", connection);
-      checkCmd.Parameters.AddWithValue("@liderId", liderId);
-      checkCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    checkCmd.Parameters.AddWithValue("@liderId", liderId);
+    checkCmd.Parameters.AddWithValue("@juegoId", juegoId);
 
-      using var reader = checkCmd.ExecuteReader();
+    using (var reader = checkCmd.ExecuteReader())
+    {
       if (reader.Read())
       {
         if (reader.GetInt32("liderExists") == 0) return NotFound("El líder no existe");
         if (reader.GetInt32("juegoExists") == 0) return NotFound("El juego no existe");
         if (reader.GetInt32("jugadorExists") > 0) return BadRequest("Ya estas unido a este juego");
       }
-
-      // Unir jugador al juego
-      var unirseCmd = new MySqlCommand("INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)", connection);
-      unirseCmd.Parameters.AddWithValue("@liderId", liderId);
-      unirseCmd.Parameters.AddWithValue("@juegoId", juegoId);
-      unirseCmd.ExecuteNonQuery();
-
-      return Ok("Jugador unido exitosamente al juego");
     }
-    catch (Exception ex)
-    {
-      return StatusCode(500, $"Error interno del servidor: {ex.Message}");
-    }
+
+
+    // Unir jugador al juego
+    var unirseCmd = new MySqlCommand("INSERT INTO jugadores (lider_id, juego_id) VALUES (@liderId, @juegoId)", connection);
+    unirseCmd.Parameters.AddWithValue("@liderId", liderId);
+    unirseCmd.Parameters.AddWithValue("@juegoId", juegoId);
+    unirseCmd.ExecuteNonQuery();
+
+    return Ok("Jugador unido exitosamente al juego");
+    // }
+    // catch (Exception ex)
+    // {
+    //   return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+    // }
   }
 
   [HttpPost("iniciar-juego/{juegoId}")]
@@ -243,7 +247,7 @@ public class VersusController : ControllerBase
   }
 
   [HttpPost("asignar-pregunta/{liderId}")]
-  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta, [FromQuery] string nivelPregunta)
+  public Pregunta GetPregunta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] string categoriaPregunta)
   {
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -297,7 +301,6 @@ public class VersusController : ControllerBase
     selectPregRandCmd.Parameters.AddWithValue("liderId", liderId);
     selectPregRandCmd.Parameters.AddWithValue("juegoId", juegoId);
     selectPregRandCmd.Parameters.AddWithValue("categoriaPregunta", categoriaPregunta);
-    selectPregRandCmd.Parameters.AddWithValue("nivelPregunta", nivelPregunta);
 
     Pregunta pregunta = new();
 
@@ -404,8 +407,9 @@ public class VersusController : ControllerBase
       puntos_actuales = puntos_actuales + @puntos,
       multiplicador = multiplicador + @aumentoMultiplicador
     where jugador_id = @jugadorId;
-    ", connection); // Actualizar, lider id
+    ", connection);
     updateJugadorCmd.Parameters.AddWithValue("puntos", puntos);
+    updateJugadorCmd.Parameters.AddWithValue("jugadorId", selectJugador(liderId, juegoId));
     updateJugadorCmd.Parameters.AddWithValue("aumentoMultiplicador", aumentoMultiplicador);
     updateJugadorCmd.ExecuteNonQuery();
 
@@ -413,8 +417,8 @@ public class VersusController : ControllerBase
     return Ok();
   }
 
-  [HttpPost("pregunta-incorrecta/{liderId}")]
-  public IActionResult PreguntaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
+  [HttpPost("respuesta-incorrecta/{liderId}")]
+  public IActionResult RespuestaIncorrecta([FromRoute] int liderId, [FromQuery] int juegoId, [FromQuery] int preguntaId)
   {
     int jugador = selectJugador(liderId, juegoId);
 
@@ -449,9 +453,53 @@ public class VersusController : ControllerBase
     return ganador;
   }
 
-  [HttpGet("estatus-juego/{juegoId}")]
-  public IActionResult EstatusJuego(int juegoId)
+  [HttpPost("verificar-ganador/{juegoId}")]
+  public IActionResult GetGanador(int juegoId)
   {
-    return Ok(new { ganador = _EstatusJuego(juegoId) });
+    int ganador = _EstatusJuego(juegoId);
+
+    if (ganador != -1)
+    {
+      MySqlConnection connection = new MySqlConnection(ConnectionString);
+      connection.Open();
+
+      MySqlCommand SetGanador = new(@"
+      update juegos j set ganador = @ganador where juego_id = @juegoId
+      ", connection);
+      SetGanador.Parameters.AddWithValue("ganador", ganador);
+      SetGanador.Parameters.AddWithValue("juegoId", juegoId);
+      SetGanador.ExecuteNonQuery();
+    }
+    return Ok(new { Ganador = ganador });
+  }
+
+
+
+  [HttpGet("estatus-juego/{juegoId}")]
+  public IActionResult GetEstatus(int juegoId)
+  {
+    MySqlConnection connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand jugadoresCmd = new(@"
+    select p.nombre_personaje, j.puntos_actuales from jugadores j 
+    join lideres l on j.lider_id = l.lider_id
+    join personajes p on p.lider_id = j.lider_id
+    where j.juego_id = @juegoId
+    ", connection);
+    jugadoresCmd.Parameters.AddWithValue("juegoId", juegoId);
+
+    List<PuntosJugador> jugadores = [];
+    using (var reader = jugadoresCmd.ExecuteReader())
+    {
+      while (reader.Read())
+      {
+        PuntosJugador jugador = new();
+        jugador.jugador = reader["nombre_personaje"].ToString();
+        jugador.puntos = Convert.ToInt32(reader["puntos_actuales"]);
+        jugadores.Add(jugador);
+      }
+    }
+    return Ok(jugadores);
   }
 }
