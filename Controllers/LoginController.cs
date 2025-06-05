@@ -17,7 +17,7 @@ public class LoginController : ControllerBase
     MySqlConnection connection = new MySqlConnection(ConnectionString);
     connection.Open();
 
-    MySqlCommand command = new MySqlCommand("SELECT l.lider_id,a.lider_id,a.ingreso_id FROM lideres l left join actividadjuego a on l.lider_id=a.lider_id WHERE usuario = @usuario AND contrasena = @contrasena", connection);
+    MySqlCommand command = new MySqlCommand("SELECT l.lider_id,a.ingreso_id FROM lideres l left join actividadjuego a on l.lider_id=a.lider_id WHERE usuario = @usuario AND contrasena = @contrasena", connection);
     command.Parameters.AddWithValue("@usuario", usuario);
     command.Parameters.AddWithValue("@contrasena", contrasena);
 
@@ -26,7 +26,7 @@ public class LoginController : ControllerBase
     if (reader.Read())
   {
     var liderId = reader["lider_id"];
-    var actividadJuego = reader["ingreso_id"]== DBNull.Value ? 0 : (int)reader["ingreso_id"];
+    var actividadJuego = reader["ingreso_id"]== DBNull.Value ? 0 : Convert.ToInt32(reader["ingreso_id"]);
 
     return Ok(new { liderId, actividadJuego });
   }
