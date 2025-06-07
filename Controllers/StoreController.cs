@@ -58,7 +58,7 @@ public class StoreController : ControllerBase
     conexion.Open();
     /*************************************/
     MySqlCommand cmd = new MySqlCommand();
-    cmd.CommandText = @"select om.oxxito_mobiliario_id,m.mueble_id ,m.precio,om.estado_desbloqueado from oxxito_mobiliario om join oxxitos o on om.oxxito_id = o.oxxito_id  join mobiliario m on om.mueble_id = m.mueble_id where o.lider_id = @liderid";
+    cmd.CommandText = @"select om.oxxito_mobiliario_id,m.mueble_id ,m.precio,om.estado_desbloqueado,om.posicionVJ from oxxito_mobiliario om join oxxitos o on om.oxxito_id = o.oxxito_id  join mobiliario m on om.mueble_id = m.mueble_id where o.lider_id = @liderid";
     /**********************************/
     cmd.Parameters.AddWithValue("@liderid", liderId);
     cmd.Connection = conexion;
@@ -72,6 +72,7 @@ public class StoreController : ControllerBase
         mueble1.mueble_id = Convert.ToInt32(reader["mueble_id"]);
         mueble1.precio = Convert.ToInt32(reader["precio"]);
         mueble1.estado_desbloqueado = Convert.ToBoolean(reader["estado_desbloqueado"]);
+        mueble1.posicionVJ = Convert.ToInt32(reader["posicionVJ"]);
         myListaMueble.Add(mueble1);
       }
     }

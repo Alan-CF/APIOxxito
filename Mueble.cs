@@ -6,4 +6,5 @@ public class Mueble
     public int mueble_id { get; set; }            // Esto es el tipo de mueble
     public int precio { get; set; }
     public bool estado_desbloqueado { get; set; }
+    public int posicionVJ { get; set; }
 }
