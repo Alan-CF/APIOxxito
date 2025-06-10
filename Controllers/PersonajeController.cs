@@ -34,7 +34,7 @@ public class PersonajeController : ControllerBase
     return Ok(new { Monedas = monedas });
   }
   [HttpPut]
-  public void SumarMonedas(int liderId,int NuevaMoneda)
+  public void SumarMonedas(int liderId, int NuevaMoneda)
   {
     using var connection = new MySqlConnection(ConnectionString);
     connection.Open();
@@ -48,7 +48,50 @@ public class PersonajeController : ControllerBase
     updatemonedas.Parameters.AddWithValue("liderId", liderId);
     updatemonedas.Parameters.AddWithValue("NuevaMoneda", NuevaMoneda);
     updatemonedas.ExecuteNonQuery();
-    
+
+  }
+
+  [HttpGet("GetUltimoTurnoRascale/{liderId}")]
+  public DateTime GetUltimoTurnoRascale(int liderId)
+  {
+    using var connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand getMonedasCmd = new(@"
+    select turno_rascale from personajes p
+     where lider_id = @liderId;
+    ", connection);
+
+    getMonedasCmd.Parameters.AddWithValue("liderId", liderId);
+
+    DateTime turno =  new DateTime();
+    using (var reader = getMonedasCmd.ExecuteReader())
+    {
+      if (reader.Read())
+      {
+        turno = reader["turno_rascale"] != DBNull.Value ? Convert.ToDateTime(reader["turno_rascale"]) : DateTime.MinValue;
+
+      }
+    }
+    return turno;
+  }
+
+  [HttpPut("ActualizarTurnoRascale/{liderId}/{Nuevoturno}")]
+  public void ActualizarTurnoRascale(int liderId, DateTime Nuevoturno)
+  {
+    using var connection = new MySqlConnection(ConnectionString);
+    connection.Open();
+
+    MySqlCommand updatemonedas = new(@"
+    update personajes p
+    set turno_rascale =  @NuevoTurno
+    where lider_id= @liderId;
+    ", connection);
+
+    updatemonedas.Parameters.AddWithValue("liderId", liderId);
+    updatemonedas.Parameters.AddWithValue("NuevoTurno", Nuevoturno);
+    updatemonedas.ExecuteNonQuery();
+
   }
 
 }
